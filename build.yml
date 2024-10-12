@@ -1,0 +1,64 @@
+name: Build APK and Send Email
+
+on:
+  push:
+    branches:
+      - main  # Change to the branch you want to trigger on
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'  # or specific Flutter version
+
+      # Step 3: Run Flutter build
+      - name: Build APK
+        run: |
+          flutter clean
+          flutter build apk --release
+
+      # Step 4: Upload APK as an artifact
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: apk-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  send_email:
+    name: Send APK via Email
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Download the built APK
+      - name: Download APK
+        uses: actions/download-artifact@v3
+        with:
+          name: apk-release
+          path: ./  # Downloads to the current directory
+
+      # Step 2: Send email with the APK attached
+      - name: Send Email with APK
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com  # Use your SMTP server
+          server_port: 465  # Port for the SMTP server
+          username: ${{ secrets.SMTP_USERNAME }}  # Set this in GitHub Secrets
+          password: ${{ secrets.SMTP_PASSWORD }}  # Set this in GitHub Secrets
+          subject: APK Build
+          body: Please find the attached APK.
+          to: recipient@example.com  # Change to the actual recipient
+          from: sender@example.com  # Change to the actual sender
+          content_type: text/plain
+          attachments: build/app/outputs/flutter-apk/app-release.apk  # Path to the APK
